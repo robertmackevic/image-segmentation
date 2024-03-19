@@ -1,0 +1,11 @@
+{
+  "classes": [
+    "car",
+    "bus",
+    "truck",
+    "motorcycle"
+  ],
+  "image_size": 640,
+  "seed": 42,
+  "batch_size": 32
+}
