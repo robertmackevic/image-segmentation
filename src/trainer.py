@@ -9,7 +9,6 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard.writer import SummaryWriter
 from tqdm import tqdm
 
-from src.model import SegNet
 from src.paths import RUNS_DIR
 from src.utils import (
     get_available_device,
@@ -23,7 +22,7 @@ from src.utils import (
 
 
 class Trainer:
-    def __init__(self, dataloaders: Tuple[DataLoader, DataLoader]) -> None:
+    def __init__(self, model: Module, dataloaders: Tuple[DataLoader, DataLoader]) -> None:
         self.config = load_config()
         self.device = get_available_device()
         self.logger = get_logger()
@@ -37,9 +36,9 @@ class Trainer:
         makedirs(self.summary_writer_eval.log_dir, exist_ok=True)
         save_config(self.config, self.model_dir / "config.json")
 
-        self.model = SegNet(in_channels=3, out_channels=len(self.config.classes)).to(self.device)
+        self.model = model.to(self.device)
         self.optimizer = Adam(self.model.parameters(), lr=self.config.learning_rate)
-        self.loss_fn = CrossEntropyLoss(reduction="sum")
+        self.loss_fn = CrossEntropyLoss()
 
         self.logger.info(f"Number of trainable parameters: {count_parameters(self.model)}")
         self.logger.info(f"Number of layers: {count_layers(self.model)}")
@@ -48,8 +47,8 @@ class Trainer:
         best_fit = 0
 
         for epoch in range(1, self.config.epochs + 1):
-            self.logger.info(f"[Epoch {epoch} / {self.config.epochs}]")
             losses = self._train_for_epoch()
+            self.logger.info(f"[Epoch {epoch} / {self.config.epochs}]")
             self.log_losses(losses, phase="train", epoch=epoch)
 
             if epoch % self.config.eval_interval == 0:
@@ -131,8 +130,8 @@ class Trainer:
         for label, value in iou.items():
             self.logger.info(f"\tIoU {label}: {value:.3f}")
 
-    @staticmethod
-    def compute_iou(output: Tensor, target: Tensor) -> float:
+    def compute_iou(self, output: Tensor, target: Tensor) -> float:
+        output = (output > self.config.conf).float()
         intersection = logical_and(output, target).sum()
         union = logical_or(output, target).sum()
         iou = intersection.float() / (union.float() + 1e-8)

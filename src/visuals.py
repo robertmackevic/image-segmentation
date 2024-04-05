@@ -1,30 +1,33 @@
-from pathlib import Path
-from typing import Optional
+from io import BytesIO
 
 import numpy as np
+import requests
+from PIL import Image
 from matplotlib import pyplot as plt
 from torch import Tensor
+from torch.nn import Module
 
-from src.model import SegNet
-from src.utils import load_weights, load_config
+from src.utils import load_config, compose_transform, get_available_device
 
 
 class Segmentor:
-    def __init__(self, model_weights_path: Optional[Path] = None) -> None:
+    def __init__(self, model: Module) -> None:
+        self.device = get_available_device()
+        self.model = model.to(self.device)
         self.config = load_config()
         self.num_classes = len(self.config.classes)
-        self.model = SegNet(in_channels=3, out_channels=self.num_classes)
-
-        if model_weights_path is not None:
-            self.model = load_weights(model_weights_path, self.model)
-
+        self.transform = compose_transform((self.config.image_size, self.config.image_size))
         self.colors = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
 
-    def segment(self) -> None:
-        pass
+    def segment(self, image: Tensor) -> None:
+        image = image.unsqueeze(0).to(self.device)
+        masks = self.model(image)
+        self.visualize_mask(image, masks)
 
-    def segment_url(self) -> None:
-        pass
+    def segment_url(self, url: str) -> None:
+        image = Image.open(BytesIO(requests.get(url).content))
+        image = self.transform(image)
+        self.segment(image)
 
     def visualize_mask(self, image: Tensor, masks: Tensor) -> None:
         image = image.permute(1, 2, 0).cpu().numpy()

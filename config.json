@@ -1,14 +1,16 @@
 {
   "classes": [
-    "car",
-    "bus",
-    "motorcycle"
+    "dog",
+    "cat",
+    "person"
   ],
-  "image_size": 416,
+  "num_samples": 3000,
+  "image_size": 224,
   "seed": 42,
   "epochs": 100,
   "eval_interval": 5,
   "save_interval": 25,
-  "batch_size": 8,
-  "learning_rate": 1e-4
+  "batch_size": 16,
+  "learning_rate": 1e-4,
+  "conf": 0.5
 }
