@@ -1,4 +1,3 @@
-from argparse import Namespace
 from functools import reduce
 from typing import List, Dict, Any, Tuple
 
@@ -7,22 +6,18 @@ import torch
 from PIL import Image
 from fiftyone import Sample, Dataset as FODataset
 from numpy.typing import NDArray
-from torch import BoolTensor, Tensor
+from torch import Tensor
 from torch.utils.data import Dataset
-from torchvision.transforms import Compose, Resize, ToTensor
 
-from src.utils import get_logger
+from src.utils import get_logger, compose_transform, load_config
 
 
 class COCODataset(Dataset):
-    def __init__(self, data: FODataset, config: Namespace) -> None:
-        self.config = config
+    def __init__(self, data: FODataset) -> None:
+        self.config = load_config()
         self.samples: List[Dict[str, Any]] = []
         self.resolution = (self.config.image_size, self.config.image_size)
-        self.transform = Compose([
-            Resize(self.resolution),
-            ToTensor()
-        ])
+        self.transform = compose_transform(self.resolution)
 
         # noinspection PyTypeChecker
         for sample in data.select_fields(["filepath", "ground_truth"]):
@@ -57,7 +52,7 @@ class COCODataset(Dataset):
     def __getitem__(self, index: int) -> Tuple[Tensor, Tensor]:
         sample = self.samples[index]
         image = self.transform(Image.open(sample["image_filepath"]))
-        masks = torch.stack([BoolTensor(mask) for mask in sample["masks"].values()], dim=0)
+        masks = torch.stack([Tensor(mask) for mask in sample["masks"].values()], dim=0)
         return image, masks
 
     def summary(self) -> None:

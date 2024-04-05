@@ -1,11 +1,17 @@
 import json
 import logging
+import random
 import sys
 from argparse import Namespace
 from pathlib import Path
+from typing import Tuple
 
+import cv2
+import numpy as np
 import torch
 from fiftyone import zoo, Dataset as FODataset
+from torch.nn import Module
+from torchvision.transforms import Compose, Resize, ToTensor
 
 from src.paths import CONFIG_FILE
 
@@ -44,3 +50,40 @@ def get_logger() -> logging.Logger:
 
 def get_available_device() -> torch.device:
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def count_layers(module: Module) -> int:
+    return len(list(module.named_modules()))
+
+
+def count_parameters(module: Module) -> int:
+    return sum(p.numel() for p in module.parameters())
+
+
+def compose_transform(resolution: Tuple[int, int]) -> Compose:
+    return Compose([
+        lambda image: image.convert("RGB"),
+        Resize(resolution),
+        ToTensor()
+    ])
+
+
+def load_weights(filepath: Path, model: Module) -> Module:
+    checkpoint = torch.load(filepath)
+    model.load_state_dict(checkpoint)
+    return model
+
+
+def save_weights(filepath: Path, model: Module) -> None:
+    torch.save(model.state_dict(), filepath)
+
+
+def seed_everything(seed: int) -> None:
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    cv2.setRNGSeed(seed)
