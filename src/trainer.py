@@ -5,10 +5,10 @@ from typing import Tuple, List, Dict, Optional
 from torch import no_grad, Tensor, logical_and, logical_or
 from torch.nn import CrossEntropyLoss, Module
 from torch.optim import Adam
-from torch.utils.data import DataLoader
 from torch.utils.tensorboard.writer import SummaryWriter
 from tqdm import tqdm
 
+from src.dataset import COCODataloader
 from src.paths import RUNS_DIR
 from src.utils import (
     get_available_device,
@@ -22,7 +22,7 @@ from src.utils import (
 
 
 class Trainer:
-    def __init__(self, model: Module, dataloaders: Tuple[DataLoader, DataLoader]) -> None:
+    def __init__(self, model: Module, dataloaders: Tuple[COCODataloader, COCODataloader]) -> None:
         self.config = load_config()
         self.device = get_available_device()
         self.logger = get_logger()
@@ -38,7 +38,7 @@ class Trainer:
 
         self.model = model.to(self.device)
         self.optimizer = Adam(self.model.parameters(), lr=self.config.learning_rate)
-        self.loss_fn = CrossEntropyLoss()
+        self.loss_fn = CrossEntropyLoss(weight=self.train_dl.class_weights.to(self.device))
 
         self.logger.info(f"Number of trainable parameters: {count_parameters(self.model)}")
         self.logger.info(f"Number of layers: {count_layers(self.model)}")
@@ -70,7 +70,7 @@ class Trainer:
 
         return self.model
 
-    def eval(self, dataloader: DataLoader) -> Tuple[List[float], Dict[str, float], float]:
+    def eval(self, dataloader: COCODataloader) -> Tuple[List[float], Dict[str, float], float]:
         self.model.eval()
         losses = []
         iou = {label: [] for label in self.config.classes}
