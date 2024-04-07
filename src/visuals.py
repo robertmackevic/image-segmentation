@@ -2,9 +2,10 @@ from io import BytesIO
 
 import numpy as np
 import requests
+import torch
 from PIL import Image
 from matplotlib import pyplot as plt
-from torch import Tensor
+from torch import Tensor, no_grad
 from torch.nn import Module
 
 from src.utils import load_config, compose_transform, get_available_device
@@ -20,9 +21,11 @@ class Segmentor:
         self.colors = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
 
     def segment(self, image: Tensor) -> None:
-        image = image.unsqueeze(0).to(self.device)
-        masks = self.model(image)
-        self.visualize_mask(image, masks[0])
+        with no_grad():
+            image = image.unsqueeze(0).to(self.device)
+            predicted_labels = self.model(image).argmax(dim=1)
+            masks = [torch.eq(predicted_labels, idx)[0] for idx in range(len(self.config.classes))]
+            self.visualize_mask(image[0], torch.stack(masks))
 
     def segment_url(self, url: str) -> None:
         image = Image.open(BytesIO(requests.get(url).content))
@@ -35,7 +38,7 @@ class Segmentor:
 
         for i in range(self.num_classes):
             mask = masks[:, :, i]
-            image[mask > 0] = (image[mask > 0] * 0.5 + self.colors[i % self.colors.shape[0]] * 0.5)
+            image[mask > 0] = (image[mask > 0] * 0.6 + self.colors[i % self.colors.shape[0]] * 0.4)
 
         plt.figure(figsize=(8, 8))
         plt.imshow(image)

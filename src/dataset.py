@@ -87,9 +87,9 @@ class COCODataset(Dataset):
         sample = self.samples[index]
         image = self.transform(Image.open(sample["image_filepath"]))
 
-        background_mask, masks = torch.ones(self.resolution, dtype=torch.uint8), []
+        background_mask, masks = torch.ones(self.resolution), []
         for mask in sample["masks"].values():
-            masks.append(Tensor(mask))
+            masks.append(torch.tensor(mask))
             background_mask[mask == 1] = 0
 
         masks.append(background_mask)

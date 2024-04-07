@@ -2,6 +2,7 @@ from os import makedirs, listdir
 from statistics import mean
 from typing import Tuple, List, Dict, Optional
 
+import torch
 from torch import no_grad, Tensor, logical_and, logical_or
 from torch.nn import CrossEntropyLoss, Module
 from torch.optim import Adam
@@ -82,12 +83,13 @@ class Trainer:
             target = batch[1].to(self.device)
 
             with no_grad():
-                output = self.model(source)
+                output: Tensor = self.model(source)
                 loss = self.loss_fn(output, target)
                 losses.append(loss.item())
 
+            predicted_labels = output.argmax(dim=1, keepdim=True)
             for idx, label in enumerate(self.config.classes):
-                iou[label].append(self.compute_iou(output[:, idx, ...], target[:, idx, ...]))
+                iou[label].append(self.compute_iou(torch.eq(predicted_labels, idx), target[:, idx, ...]))
 
         iou = {label: mean(values) for label, values in iou.items()}
         m_iou = mean(iou.values())
@@ -130,8 +132,8 @@ class Trainer:
         for label, value in iou.items():
             self.logger.info(f"\tIoU {label}: {value:.3f}")
 
-    def compute_iou(self, output: Tensor, target: Tensor) -> float:
-        output = (output > self.config.conf).float()
+    @staticmethod
+    def compute_iou(output: Tensor, target: Tensor) -> float:
         intersection = logical_and(output, target).sum()
         union = logical_or(output, target).sum()
         iou = intersection.float() / (union.float() + 1e-8)
