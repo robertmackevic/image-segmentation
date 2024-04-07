@@ -22,7 +22,7 @@ class Segmentor:
     def segment(self, image: Tensor) -> None:
         image = image.unsqueeze(0).to(self.device)
         masks = self.model(image)
-        self.visualize_mask(image, masks)
+        self.visualize_mask(image, masks[0])
 
     def segment_url(self, url: str) -> None:
         image = Image.open(BytesIO(requests.get(url).content))

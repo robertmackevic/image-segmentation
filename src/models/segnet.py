@@ -7,7 +7,7 @@ from torch.nn import (
     ReLU,
     MaxPool2d,
     MaxUnpool2d,
-    Sigmoid
+    Softmax
 )
 from torch.nn.init import xavier_uniform_
 from torchvision.models import vgg16_bn, VGG16_BN_Weights
@@ -30,7 +30,7 @@ class SegNet(Module):
 
         self.pool = MaxPool2d(kernel_size=2, stride=2, return_indices=True)
         self.unpool = MaxUnpool2d(kernel_size=2, stride=2)
-        self.sigmoid = Sigmoid()
+        self.softmax = Softmax(dim=1)
         self._init_weights()
 
     @staticmethod
@@ -102,4 +102,4 @@ class SegNet(Module):
         x = self.dec_block_3(self.unpool(x, indices_3, output_size=size_3))
         x = self.dec_block_2(self.unpool(x, indices_2, output_size=size_2))
         x = self.dec_block_1(self.unpool(x, indices_1, output_size=size_1))
-        return self.sigmoid(x)
+        return self.softmax(x)

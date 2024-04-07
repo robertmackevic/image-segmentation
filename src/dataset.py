@@ -34,26 +34,30 @@ class COCODataset(Dataset):
         }
 
         total_pixels = self.resolution[0] * self.resolution[1] * len(self)
-        total_labeled_pixels = sum(num_pixels_per_class.values())
-        percentage_labeled = total_labeled_pixels / total_pixels * 100
-        total_unlabeled_pixels = total_pixels - total_labeled_pixels
-        percentage_unlabeled = total_unlabeled_pixels / total_pixels * 100
+        total_labeled = sum(num_pixels_per_class.values())
+        percent_labeled = total_labeled / total_pixels * 100
+        total_unlabeled = total_pixels - total_labeled
+        percent_unlabeled = total_unlabeled / total_pixels * 100
+        weight_coefficient = (len(self.config.classes) + 1)
+        unlabeled_weight = total_pixels / (total_unlabeled * weight_coefficient)
+        labeled_weight = total_pixels / (total_labeled * weight_coefficient)
 
         if summarize:
             logger.info(f"Number of samples: {len(self)}")
-            logger.info(f"Number of labeled pixels: {total_labeled_pixels} | {percentage_labeled:.2f}%")
-            logger.info(f"Number of unlabeled pixels: {total_unlabeled_pixels} | {percentage_unlabeled:.2f}%")
-            logger.info(f"Mean labeled pixels per sample: {total_labeled_pixels / len(self):.2f}")
+            logger.info(f"Labeled: {total_labeled} pixels | {percent_labeled:.2f}% | {labeled_weight:.3f} w.")
+            logger.info(f"Unlabeled: {total_unlabeled} pixels | {percent_unlabeled:.2f}% | {unlabeled_weight:.3f} w.")
+            logger.info(f"Mean labeled pixels per sample: {total_labeled / len(self):.2f}")
 
         class_weights = []
         for label, num_pixels in num_pixels_per_class.items():
-            weight = total_labeled_pixels / (num_pixels_per_class[label] * len(num_pixels_per_class))
+            weight = total_pixels / (num_pixels_per_class[label] * weight_coefficient)
             class_weights.append(weight)
 
             if summarize:
-                percentage = num_pixels / total_labeled_pixels * 100
-                logger.info(f"Class `{label}`: {num_pixels} pixels | {percentage:.2f}% | {weight:.3f} weight")
+                percentage = num_pixels / total_labeled * 100
+                logger.info(f"Class `{label}`: {num_pixels} pixels | {percentage:.2f}% | {weight:.3f} w.")
 
+        class_weights.append(unlabeled_weight)
         self.class_weights = Tensor(class_weights)
 
     def _create_semantic_masks(self, sample: Sample) -> Dict[str, NDArray]:
@@ -82,7 +86,15 @@ class COCODataset(Dataset):
     def __getitem__(self, index: int) -> Tuple[Tensor, Tensor]:
         sample = self.samples[index]
         image = self.transform(Image.open(sample["image_filepath"]))
-        masks = torch.stack([Tensor(mask) for mask in sample["masks"].values()], dim=0)
+
+        background_mask, masks = torch.ones(self.resolution, dtype=torch.uint8), []
+        for mask in sample["masks"].values():
+            masks.append(Tensor(mask))
+            background_mask[mask == 1] = 0
+
+        masks.append(background_mask)
+        masks = torch.stack(masks, dim=0)
+
         return image, masks
 
 
