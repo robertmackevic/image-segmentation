@@ -1,15 +1,16 @@
 from os import makedirs, listdir
 from statistics import mean
-from typing import Tuple, List, Dict, Optional
+from typing import Tuple, List, Optional
 
 import torch
-from torch import no_grad, Tensor, logical_and, logical_or
+from torch import no_grad
 from torch.nn import CrossEntropyLoss, Module
 from torch.optim import Adam
 from torch.utils.tensorboard.writer import SummaryWriter
 from tqdm import tqdm
 
 from src.dataset import COCODataloader
+from src.dtypes import Metrics
 from src.paths import RUNS_DIR
 from src.utils import (
     get_available_device,
@@ -43,7 +44,8 @@ class Trainer:
         self.logger.info(f"Number of trainable parameters: {count_parameters(self.model)}")
 
     def fit(self) -> Module:
-        best_fit = 0
+        best_score = 0
+        best_score_metric = "IoU"
 
         for epoch in range(1, self.config.epochs + 1):
             losses = self._train_for_epoch()
@@ -51,13 +53,15 @@ class Trainer:
             self.log_losses(losses, phase="train", epoch=epoch)
 
             if epoch % self.config.eval_interval == 0:
-                losses, iou, m_iou = self.eval(self.val_dl)
+                losses, metrics = self.eval(self.val_dl)
                 self.log_losses(losses, phase="eval", epoch=epoch)
-                self.log_iou(iou, m_iou, epoch=epoch)
+                self.log_metrics(metrics, epoch=epoch)
 
-                if m_iou > best_fit:
-                    best_fit = m_iou
-                    self.logger.info(f"Saving best weights with mIoU: {m_iou:.3f}")
+                score = metrics.total_metrics[best_score_metric]
+
+                if score > best_score:
+                    best_score = score
+                    self.logger.info(f"Saving best weights with mIoU: {score:.3f}")
                     save_weights(self.model_dir / "weights_best.pth", self.model)
 
             if epoch % self.config.save_interval == 0:
@@ -69,29 +73,28 @@ class Trainer:
 
         return self.model
 
-    def eval(self, dataloader: COCODataloader) -> Tuple[List[float], Dict[str, float], float]:
+    def eval(self, dataloader: COCODataloader) -> Tuple[List[float], Metrics]:
         self.model.eval()
         losses = []
-        iou = {label: [] for label in self.config.classes}
+        metrics = Metrics(self.config.classes)
 
         for batch in tqdm(dataloader):
-            self.optimizer.zero_grad()
-
             source = batch[0].to(self.device)
             target = batch[1].to(self.device)
 
             with no_grad():
-                output: Tensor = self.model(source)
+                output = self.model(source)
                 loss = self.loss_fn(output, target)
                 losses.append(loss.item())
 
-            predicted_labels = output.argmax(dim=1, keepdim=True)
-            for idx, label in enumerate(self.config.classes):
-                iou[label].append(self.compute_iou(torch.eq(predicted_labels, idx), target[:, idx, ...]))
+            predicted_labels = output.argmax(dim=1, keepdim=False)
+            for label_idx, label in enumerate(self.config.classes):
+                metrics.data[label].compute(
+                    output=torch.eq(predicted_labels, label_idx).float(),
+                    target=target[:, label_idx, ...]
+                )
 
-        iou = {label: mean(values) for label, values in iou.items()}
-        m_iou = mean(iou.values())
-        return losses, iou, m_iou
+        return losses, metrics
 
     def _train_for_epoch(self) -> List[float]:
         self.model.train()
@@ -121,18 +124,21 @@ class Trainer:
 
         self.logger.info(f"[{phase}] loss: {loss:.3f}")
 
-    def log_iou(self, iou: Dict[str, float], m_iou: float, epoch: Optional[int] = None) -> None:
+    def log_metrics(self, metrics: Metrics, epoch: Optional[int] = None) -> None:
+        metrics.compute_class_metrics()
+        metrics.compute_total_metrics()
+
         if epoch is not None:
-            self.summary_writer_eval.add_scalar(tag="mIoU", scalar_value=m_iou, global_step=epoch)
+            for key, value in metrics.total_metrics.items():
+                self.summary_writer_eval.add_scalar(tag=key, scalar_value=value, global_step=epoch)
 
-        self.logger.info(f"mIoU: {m_iou:.3f}")
+        message = "[overall] "
+        for key, value in metrics.total_metrics.items():
+            message += f"{key}: {value:.3f} "
+        self.logger.info(message)
 
-        for label, value in iou.items():
-            self.logger.info(f"\tIoU {label}: {value:.3f}")
-
-    @staticmethod
-    def compute_iou(output: Tensor, target: Tensor) -> float:
-        intersection = logical_and(output, target).sum()
-        union = logical_or(output, target).sum()
-        iou = intersection.float() / (union.float() + 1e-8)
-        return iou.item()
+        for label in self.config.classes:
+            message = f"[{label}] "
+            for key, value in metrics.class_metrics[label].items():
+                message += f"{key}: {value:.3f} "
+            self.logger.info(message)

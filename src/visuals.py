@@ -21,6 +21,7 @@ class Segmentor:
         self.colors = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
 
     def segment(self, image: Tensor) -> None:
+        self.model.eval()
         with no_grad():
             image = image.unsqueeze(0).to(self.device)
             predicted_labels = self.model(image).argmax(dim=1)
