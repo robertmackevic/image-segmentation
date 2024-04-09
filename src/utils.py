@@ -52,10 +52,6 @@ def get_available_device() -> torch.device:
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def count_layers(module: Module) -> int:
-    return len(list(module.named_modules()))
-
-
 def count_parameters(module: Module) -> int:
     return sum(p.numel() for p in module.parameters())
 

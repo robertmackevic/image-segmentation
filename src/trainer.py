@@ -16,7 +16,6 @@ from src.utils import (
     get_logger,
     load_config,
     save_config,
-    count_layers,
     count_parameters,
     save_weights
 )
@@ -42,7 +41,6 @@ class Trainer:
         self.loss_fn = CrossEntropyLoss(weight=self.train_dl.class_weights.to(self.device))
 
         self.logger.info(f"Number of trainable parameters: {count_parameters(self.model)}")
-        self.logger.info(f"Number of layers: {count_layers(self.model)}")
 
     def fit(self) -> Module:
         best_fit = 0
