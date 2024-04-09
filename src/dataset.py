@@ -1,3 +1,4 @@
+from argparse import Namespace
 from functools import reduce
 from typing import List, Dict, Any, Tuple
 
@@ -14,8 +15,8 @@ from src.utils import get_logger, compose_transform, load_config
 
 
 class COCODataset(Dataset):
-    def __init__(self, data: FODataset, summarize: bool = True) -> None:
-        self.config = load_config()
+    def __init__(self, data: FODataset, summarize: bool = True, config: Namespace = load_config()) -> None:
+        self.config = config
         self.samples: List[Dict[str, Any]] = []
         self.resolution = (self.config.image_size, self.config.image_size)
         self.transform = compose_transform(self.resolution)

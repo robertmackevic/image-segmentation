@@ -127,7 +127,7 @@ class Trainer:
 
         if epoch is not None:
             for key, value in metrics.total_metrics.items():
-                self.summary_writer_eval.add_scalar(tag=key, scalar_value=value, global_step=epoch)
+                self.summary_writer_eval.add_scalar(tag=f"metrics/{key}", scalar_value=value, global_step=epoch)
 
         message = "[overall] "
         for key, value in metrics.total_metrics.items():
