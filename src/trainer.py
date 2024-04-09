@@ -10,7 +10,7 @@ from torch.utils.tensorboard.writer import SummaryWriter
 from tqdm import tqdm
 
 from src.dataset import COCODataloader
-from src.dtypes import Metrics
+from src.metrics import Metrics
 from src.paths import RUNS_DIR
 from src.utils import (
     get_available_device,
@@ -61,15 +61,12 @@ class Trainer:
 
                 if score > best_score:
                     best_score = score
-                    self.logger.info(f"Saving best weights with mIoU: {score:.3f}")
+                    self.logger.info(f"Saving best weights with {best_score_metric}: {score:.3f}")
                     save_weights(self.model_dir / "weights_best.pth", self.model)
 
             if epoch % self.config.save_interval == 0:
                 self.logger.info(f"Saving model weights at epoch: {epoch}")
                 save_weights(self.model_dir / f"weights_{epoch}.pth", self.model)
-
-        self.logger.info("Saving final model weights")
-        save_weights(self.model_dir / "weights_final.pth", self.model)
 
         return self.model
 

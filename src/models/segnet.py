@@ -7,11 +7,16 @@ from torch.nn import (
 )
 
 from src.models.modules import ConvBlock
+from src.utils import load_config
 
 
 class SegNet(Module):
-    def __init__(self, in_channels: int, out_channels: int) -> None:
+    def __init__(self) -> None:
         super(SegNet, self).__init__()
+        config = load_config()
+        in_channels = config.channels
+        out_channels = len(config.classes) + 1
+
         self.enc_block_1 = ConvBlock(in_channels, 64, repeat=2)
         self.enc_block_2 = ConvBlock(64, 128, repeat=2)
         self.enc_block_3 = ConvBlock(128, 256, repeat=3)
