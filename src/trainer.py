@@ -33,9 +33,6 @@ class Trainer:
         self.model_dir = RUNS_DIR / f"v{len(listdir(RUNS_DIR)) + 1}"
         self.summary_writer_train = SummaryWriter(log_dir=str(self.model_dir / "train"))
         self.summary_writer_eval = SummaryWriter(log_dir=str(self.model_dir / "eval"))
-        makedirs(self.summary_writer_train.log_dir, exist_ok=True)
-        makedirs(self.summary_writer_eval.log_dir, exist_ok=True)
-        save_config(self.config, self.model_dir / "config.json")
 
         self.model = model.to(self.device)
         self.optimizer = Adam(self.model.parameters(), lr=self.config.learning_rate)
@@ -44,6 +41,10 @@ class Trainer:
         self.logger.info(f"Number of trainable parameters: {count_parameters(self.model)}")
 
     def fit(self) -> Module:
+        makedirs(self.summary_writer_train.log_dir, exist_ok=True)
+        makedirs(self.summary_writer_eval.log_dir, exist_ok=True)
+        save_config(self.config, self.model_dir / "config.json")
+
         best_score = 0
         best_score_metric = "IoU"
 
