@@ -20,8 +20,9 @@ class Segmentor:
         self.transform = compose_transform((self.config.image_size, self.config.image_size))
         self.colors = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
 
-    def segment(self, image: Tensor) -> None:
+    def segment(self, _image: Tensor) -> None:
         self.model.eval()
+        image = _image.clone()
         with no_grad():
             image = image.unsqueeze(0).to(self.device)
             predicted_labels = self.model(image).argmax(dim=1)
@@ -33,7 +34,8 @@ class Segmentor:
         image = self.transform(image)
         self.segment(image)
 
-    def visualize_mask(self, image: Tensor, masks: Tensor) -> None:
+    def visualize_mask(self, _image: Tensor, masks: Tensor) -> None:
+        image = _image.clone()
         image = image.permute(1, 2, 0).cpu().numpy()
         masks = masks.permute(1, 2, 0).cpu().numpy()
 

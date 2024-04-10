@@ -65,7 +65,7 @@ def compose_transform(resolution: Tuple[int, int]) -> Compose:
 
 
 def load_weights(filepath: Path, model: Module) -> Module:
-    checkpoint = torch.load(filepath)
+    checkpoint = torch.load(filepath, map_location=get_available_device())
     model.load_state_dict(checkpoint)
     return model
 
