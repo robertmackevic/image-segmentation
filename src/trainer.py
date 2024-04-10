@@ -29,10 +29,8 @@ class Trainer:
         self.logger = get_logger()
         self.train_dl, self.val_dl = dataloaders
 
-        makedirs(RUNS_DIR, exist_ok=True)
-        self.model_dir = RUNS_DIR / f"v{len(listdir(RUNS_DIR)) + 1}"
-        self.summary_writer_train = SummaryWriter(log_dir=str(self.model_dir / "train"))
-        self.summary_writer_eval = SummaryWriter(log_dir=str(self.model_dir / "eval"))
+        self.summary_writer_train = None
+        self.summary_writer_eval = None
 
         self.model = model.to(self.device)
         self.optimizer = Adam(self.model.parameters(), lr=self.config.learning_rate)
@@ -41,9 +39,14 @@ class Trainer:
         self.logger.info(f"Number of trainable parameters: {count_parameters(self.model)}")
 
     def fit(self) -> Module:
+        makedirs(RUNS_DIR, exist_ok=True)
+        model_dir = RUNS_DIR / f"v{len(listdir(RUNS_DIR)) + 1}"
+        self.summary_writer_train = SummaryWriter(log_dir=str(model_dir / "train"))
+        self.summary_writer_eval = SummaryWriter(log_dir=str(model_dir / "eval"))
+
         makedirs(self.summary_writer_train.log_dir, exist_ok=True)
         makedirs(self.summary_writer_eval.log_dir, exist_ok=True)
-        save_config(self.config, self.model_dir / "config.json")
+        save_config(self.config, model_dir / "config.json")
 
         best_score = 0
         best_score_metric = "IoU"
@@ -63,11 +66,11 @@ class Trainer:
                 if score > best_score:
                     best_score = score
                     self.logger.info(f"Saving best weights with {best_score_metric}: {score:.3f}")
-                    save_weights(self.model_dir / "weights_best.pth", self.model)
+                    save_weights(model_dir / "weights_best.pth", self.model)
 
             if epoch % self.config.save_interval == 0:
                 self.logger.info(f"Saving model weights at epoch: {epoch}")
-                save_weights(self.model_dir / f"weights_{epoch}.pth", self.model)
+                save_weights(model_dir / f"weights_{epoch}.pth", self.model)
 
         return self.model
 
